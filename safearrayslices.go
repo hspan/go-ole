@@ -43,3 +43,4 @@ func safeArrayFromInt32Slice(slice []int32) *SafeArray {
 		safeArrayPutElement(array, int64(i), uintptr(unsafe.Pointer(&v)))
 	}
 	return array
+}

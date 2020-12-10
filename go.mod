@@ -1,3 +1,3 @@
-module github.com/go-ole/go-ole
+module github.com/hspan/go-ole
 
-go 1.12
+go 1.15
