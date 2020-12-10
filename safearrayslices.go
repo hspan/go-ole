@@ -31,3 +31,15 @@ func safeArrayFromStringSlice(slice []string) *SafeArray {
 	}
 	return array
 }
+
+func safeArrayFromInt32Slice(slice []int32) *SafeArray {
+	array, _ := safeArrayCreateVector(VT_I4, 0, uint32(len(slice)))
+
+	if array == nil {
+		panic("Could not convert []int32 to SAFEARRAY")
+	}
+	// SysAllocStringLen(s)
+	for i, v := range slice {
+		safeArrayPutElement(array, int64(i), uintptr(unsafe.Pointer(&v)))
+	}
+	return array
