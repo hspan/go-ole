@@ -1,46 +1,57 @@
 # Go OLE + possible []int32 input
+이 패키지는 [github.com/go-ole/go-ole](https://github.com/go-ole/go-ole)를 가져와 입력값으로 []int32를 사용할 수 있도록 idispatch_windows.go와 safearrayslices.go를 수정한 것입니다.
 
-[![Build status](https://ci.appveyor.com/api/projects/status/qr0u2sf7q43us9fj?svg=true)](https://ci.appveyor.com/project/jacobsantos/go-ole-jgs28)
-[![Build Status](https://travis-ci.org/go-ole/go-ole.svg?branch=master)](https://travis-ci.org/go-ole/go-ole)
-[![GoDoc](https://godoc.org/github.com/go-ole/go-ole?status.svg)](https://godoc.org/github.com/go-ole/go-ole)
 
-Go bindings for Windows COM using shared libraries instead of cgo.
-
-By Yasuhiro Matsumoto.
-
-## Install
-
-To experiment with go-ole, you can just compile and run the example program:
-
+## 사용법
+설치
 ```
-go get github.com/go-ole/go-ole
-cd /path/to/go-ole/
-go test
-
-cd /path/to/go-ole/example/excel
-go run excel.go
+go get github.com/hspan/go-ole
 ```
 
-## Continuous Integration
+상세한 사용법은 github.com/hspan/go-ole 와 동일하므로 [godoc](https://godoc.org/github.com/go-ole/go-ole)을 참조하시기 바랍니다.
 
-Continuous integration configuration has been added for both Travis-CI and AppVeyor. You will have to add these to your own account for your fork in order for it to run.
+## 수정내용
+### idispatch_windows.go - invoke함수 내 case 추가
+```go
+func invoke(disp *IDispatch, dispid int32, dispatch int16, params ...interface{}) (result *VARIANT, err error) {
+    .
+    .
+    .
+			case []string:
+				safeByteArray := safeArrayFromStringSlice(v.([]string))
+				vargs[n] = NewVariant(VT_ARRAY|VT_BSTR, int64(uintptr(unsafe.Pointer(safeByteArray))))
+                defer VariantClear(&vargs[n])
 
-**Travis-CI**
+            // 추가 부분 시작 
+			case []int32:  
+				safeByteArray := safeArrayFromInt32Slice(v.([]int32))
+                vargs[n] = NewVariant(VT_ARRAY|VT_I4, int64(uintptr(unsafe.Pointer(safeByteArray))))
+            // 추가 부분 종료
 
-Travis-CI was added to check builds on Linux to ensure that `go get` works when cross building. Currently, Travis-CI is not used to test cross-building, but this may be changed in the future. It is also not currently possible to test the library on Linux, since COM API is specific to Windows and it is not currently possible to run a COM server on Linux or even connect to a remote COM server.
+				defer VariantClear(&vargs[n])
+			default:
+				panic("unknown type")
+			}
+		}
+.
+.
+.
+	return
+}
+```
 
-**AppVeyor**
+### safearrayslices.go - 아래 함수 추가
+```go
+func safeArrayFromInt32Slice(slice []int32) *SafeArray {
+	array, _ := safeArrayCreateVector(VT_I4, 0, uint32(len(slice)))
 
-AppVeyor is used to build on Windows using the (in-development) test COM server. It is currently only used to test the build and ensure that the code works on Windows. It will be used to register a COM server and then run the test cases based on the test COM server.
-
-The tests currently do run and do pass and this should be maintained with commits.
-
-## Versioning
-
-Go OLE uses [semantic versioning](http://semver.org) for version numbers, which is similar to the version contract of the Go language. Which means that the major version will always maintain backwards compatibility with minor versions. Minor versions will only add new additions and changes. Fixes will always be in patch. 
-
-This contract should allow you to upgrade to new minor and patch versions without breakage or modifications to your existing code. Leave a ticket, if there is breakage, so that it could be fixed.
-
-## LICENSE
-
-Under the MIT License: http://mattn.mit-license.org/2013
+	if array == nil {
+		panic("Could not convert []int32 to SAFEARRAY")
+	}
+	// SysAllocStringLen(s)
+	for i, v := range slice {
+		safeArrayPutElement(array, int64(i), uintptr(unsafe.Pointer(&v)))
+	}
+	return array
+}
+```
